@@ -4,17 +4,17 @@
 // Also runnable directly — `node http-serve.mjs <dir>` serves <dir> and
 // prints the URL (used for the human review pass over .review.html).
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, resolve, sep } from 'node:path';
+import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
 
 export function serveDir(root) {
-  const rootAbs = resolve(root) + sep;
+  const rootReal = realpathSync(resolve(root));
   const srv = createServer((req, res) => {
-    let pathname, p;
+    let pathname, p, real;
     try {
       pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
       p = resolve(root, '.' + pathname);
@@ -22,9 +22,12 @@ export function serveDir(root) {
     // 200 on / so a caller can goto('/') to establish a same-origin page
     // before setContent() (→ fonts load same-origin, no CORS header needed).
     if (pathname === '/') { res.setHeader('Content-Type', 'text/html'); return res.end('<!doctype html>'); }
-    if (!p.startsWith(rootAbs) || !existsSync(p) || !statSync(p).isFile()) { res.statusCode = 404; return res.end(); }
+    if (!existsSync(p)) { res.statusCode = 404; return res.end(); }
+    try { real = realpathSync(p); } catch { res.statusCode = 404; return res.end(); }
+    const rel = relative(rootReal, real);
+    if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`) || !statSync(real).isFile()) { res.statusCode = 404; return res.end(); }
     res.setHeader('Content-Type', MIME[extname(p)] ?? 'application/octet-stream');
-    res.end(readFileSync(p));
+    res.end(readFileSync(real));
   });
   return new Promise((r) => srv.listen(0, '127.0.0.1', () => r({ srv, port: srv.address().port })));
 }
