@@ -50,10 +50,17 @@ export function extractFonts(cssPath, srcDir, { fontsOut, roots }) {
 
 // Copy a tokens package's shipped CSS verbatim into OUT/tokens/. tokensGlob
 // supports a single trailing `**` segment for deep recursion.
-export function copyTokens({ tokensPkg, tokensGlob, nodeModules, out }) {
+export function copyTokens({ tokensPkg, tokensGlob, nodeModules, out, root }) {
   const tokenFiles = [];
   if (!tokensPkg) return tokenFiles;
   const tdir = join(nodeModules, tokensPkg);
+  const rootReal = realpathSync(resolve(root));
+  const insideRoot = (p) => {
+    const real = realpathSync(p);
+    const rel = relative(rootReal, real);
+    return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+  };
+  if (!existsSync(tdir) || !insideRoot(tdir)) return tokenFiles;
   const tjson = JSON.parse(readFileSync(join(tdir, 'package.json'), 'utf8'));
   if (tokensGlob) {
     const parts = tokensGlob.split('/');
@@ -62,15 +69,16 @@ export function copyTokens({ tokensPkg, tokensGlob, nodeModules, out }) {
     const deep = parts.includes('**');
     const base = join(tdir, ...parts.filter((p) => p !== '**'));
     (function collect(d, rel = '') {
-      if (!existsSync(d)) return;
+      if (!existsSync(d) || !insideRoot(d)) return;
       for (const e of ls(d, { withFileTypes: true })) {
         const r = rel ? `${rel}/${e.name}` : e.name;
-        if (e.isDirectory() && deep) collect(join(d, e.name), r);
-        else if (e.isFile() && rx.test(e.name)) {
+        const source = join(d, e.name);
+        if (e.isDirectory() && deep) collect(source, r);
+        else if (e.isFile() && rx.test(e.name) && insideRoot(source)) {
           // Preserve subdir structure so @import './sub/x.css' inside a
           // copied file keeps resolving.
           mkdirSync(dirname(join(out, 'tokens', r)), { recursive: true });
-          cpSync(join(d, e.name), join(out, 'tokens', r));
+          cpSync(source, join(out, 'tokens', r));
           tokenFiles.push(r);
         }
       }
@@ -78,9 +86,9 @@ export function copyTokens({ tokensPkg, tokensGlob, nodeModules, out }) {
   } else {
     for (const sub of ['dist/css', 'css', 'dist', '.']) {
       const d = join(tdir, sub);
-      if (!existsSync(d)) continue;
+      if (!existsSync(d) || !insideRoot(d)) continue;
       for (const f of ls(d)) {
-        if (f.endsWith('.css')) {
+        if (f.endsWith('.css') && insideRoot(join(d, f))) {
           cpSync(join(d, f), join(out, 'tokens', f));
           tokenFiles.push(f);
         }
