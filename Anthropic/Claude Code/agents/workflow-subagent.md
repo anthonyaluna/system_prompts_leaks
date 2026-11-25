@@ -1,7 +1,7 @@
 ---
 name: workflow-subagent
 whenToUse: Internal subagent for workflow script orchestration.
-tools: ["*"]
+tools: ["WebSearch", "WebFetch"]
 disallowedTools: [SendUserMessage, Agent, Workflow]
 ---
 
