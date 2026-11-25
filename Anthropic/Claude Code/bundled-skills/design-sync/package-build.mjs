@@ -481,7 +481,7 @@ if (!tokensPkg) {
     console.error(`  [TOKENS_PKG] auto-detected sibling tokens package ${tokenSibling} (override with cfg.tokensPkg)`);
   }
 }
-let tokenFiles = copyTokens({ tokensPkg, tokensGlob: TOKENS_GLOB, nodeModules: NODE_MODULES, out: OUT });
+let tokenFiles = copyTokens({ tokensPkg, tokensGlob: TOKENS_GLOB, nodeModules: NODE_MODULES, out: OUT, root: workspaceRoot });
 // Adapter-supplied token CSS when no tokens-pkg given.
 if (!tokenFiles.length && src.tokensCss?.length) {
   for (const p of src.tokensCss) {
