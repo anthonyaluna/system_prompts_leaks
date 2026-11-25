@@ -185,7 +185,7 @@ const searchResults = await pipeline(
         dupes.push({ ...r, angle: searchResult.angle, dupOf: seen.get(key) })
         return false
       }
-      if (fetchSlots <= 0 && relRank[r.relevance] >= 1) {
+      if (fetchSlots <= 0) {
         budgetDropped.push({ ...r, angle: searchResult.angle })
         return false
       }
